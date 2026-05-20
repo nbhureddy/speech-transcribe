@@ -1,0 +1,52 @@
+# ============================================================
+# live-transcriber — default configuration
+# ============================================================
+# Copy / edit this file and pass it with:  live-transcriber --config path/to/config.yaml
+
+model:
+  size: small          # tiny | base | small | medium | large-v3
+  language: en         # BCP-47 language code; null to auto-detect
+  compute_type: int8   # float16 | int8 | float32
+
+audio:
+  sample_rate: 16000
+  channels: 1
+  chunk_seconds: 6     # length of each transcription window
+  overlap_seconds: 1   # overlap between consecutive windows
+  block_size: 4096     # sounddevice InputStream blocksize (samples)
+
+transcription:
+  vad_filter: true
+  min_silence_duration_ms: 500
+  beam_size: 5
+  best_of: 5
+  temperature: 0.0
+
+output:
+  transcript_dir: transcripts  # folder where per-run transcript files are written
+
+logging:
+  level: INFO          # DEBUG | INFO | WARNING | ERROR
+  log_file: null       # set to e.g. "logs/app.log" to also write to a file
+  suppress_third_party: true  # silence faster_whisper / ctranslate2 INFO noise
+
+debug: false
+
+# ============================================================
+# LLM refinement (runs at end of session on CTRL+C)
+# ============================================================
+llm:
+  enabled: false          # set to true to enable post-processing
+  provider: openai        # openai | ollama | anthropic
+  model: gpt-4o-mini      # model name for the chosen provider
+
+  # API key — leave null to read from env var (OPENAI_API_KEY / ANTHROPIC_API_KEY)
+  api_key: null
+
+  # Override API endpoint. Examples:
+  #   Ollama local : http://localhost:11434/v1
+  #   Azure OpenAI : https://<resource>.openai.azure.com/openai/deployments/<deploy>
+  base_url: null
+
+  temperature: 0.1        # keep low for faithful reproduction
+  max_tokens: 4096

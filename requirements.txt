@@ -1,0 +1,6 @@
+faster-whisper
+sounddevice
+numpy
+pyyaml
+openai
+# anthropic  # uncomment if using provider: anthropic
