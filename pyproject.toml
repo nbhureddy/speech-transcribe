@@ -11,11 +11,15 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
     "faster-whisper",
+    "mlx-whisper",
     "sounddevice",
     "numpy",
     "pyyaml",
     "openai",
 ]
+
+[project.optional-dependencies]
+apple = ["mlx-whisper"]  # only needed on Apple Silicon
 
 [project.scripts]
 live-transcriber = "live_transcriber.cli:main"

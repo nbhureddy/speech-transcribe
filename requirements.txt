@@ -1,6 +1,12 @@
 faster-whisper
+mlx-whisper        # Apple Silicon backend (M1/M2/M3/M4); remove on non-Mac
 sounddevice
 numpy
 pyyaml
 openai
 # anthropic  # uncomment if using provider: anthropic
+
+# Dependencies for VP Scrapper
+requests
+pandas
+beautifulsoup4

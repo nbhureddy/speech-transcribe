@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Optional
 
 from live_transcriber.config import LLMConfig
@@ -21,25 +22,27 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------ #
 
 _SYSTEM_PROMPT = """\
-You are a transcript editor. Your only job is to clean up raw speech-to-text output.
+You are a transcript editor. Clean up raw speech-to-text output.
 
-Rules (follow strictly):
-1. Fix grammar, punctuation, and sentence structure.
-2. Remove filler words and sounds (um, uh, like, you know, right, so, basically, literally, etc.).
-3. Remove exact word repetitions and false starts (e.g. "I I I was" → "I was").
-4. Preserve ALL facts, names, numbers, and opinions exactly as spoken.
-5. Do NOT add any information, commentary, summaries, or opinions of your own.
-6. Do NOT remove or paraphrase content — only clean up the language.
-7. Output ONLY the cleaned transcript text. No preamble, no explanation.
+Instructions:
+- Fix grammar, punctuation, and sentence structure.
+- Remove filler words (um, uh, like, you know, right, so, basically, literally).
+- Remove word repetitions and false starts ("I I I was" → "I was").
+- Keep ALL facts, names, numbers, and opinions exactly as spoken.
+- Do NOT add information, summaries, or commentary.
+- Do NOT paraphrase — only fix language.
+
+Output ONLY the cleaned text. No introduction. No explanation. No markdown.
 """
 
 _USER_TEMPLATE = """\
-Clean up the following raw transcript. Follow the rules exactly.
+Clean this transcript:
 
---- RAW TRANSCRIPT ---
 {raw_text}
---- END ---
 """
+
+# Approximate chars per token for rough chunking estimates
+_CHARS_PER_TOKEN = 4
 
 
 # ------------------------------------------------------------------ #
@@ -88,6 +91,8 @@ class TranscriptRefiner:
         logger.info("Sending transcript to %s (%s) for refinement…", self._cfg.provider, self._cfg.model)
 
         try:
+            if self._cfg.chunk_tokens > 0:
+                return self._refine_chunked(raw_text)
             if self._cfg.provider == "anthropic":
                 return self._call_anthropic(raw_text)
             else:
@@ -166,10 +171,46 @@ class TranscriptRefiner:
         )
         return response.choices[0].message.content.strip()
 
+    def _refine_chunked(self, raw_text: str) -> str:
+        """Split *raw_text* into chunks and refine each independently."""
+        max_chars = self._cfg.chunk_tokens * _CHARS_PER_TOKEN
+        sentences = re.split(r'(?<=[.!?])\s+', raw_text.strip())
+
+        chunks: list[str] = []
+        current: list[str] = []
+        current_len = 0
+
+        for sentence in sentences:
+            if current and current_len + len(sentence) > max_chars:
+                chunks.append(" ".join(current))
+                current = []
+                current_len = 0
+            current.append(sentence)
+            current_len += len(sentence) + 1
+
+        if current:
+            chunks.append(" ".join(current))
+
+        logger.info("Refining transcript in %d chunk(s) (chunk_tokens=%d)", len(chunks), self._cfg.chunk_tokens)
+
+        refined_parts: list[str] = []
+        for i, chunk in enumerate(chunks, 1):
+            logger.debug("Refining chunk %d/%d…", i, len(chunks))
+            if self._cfg.provider == "anthropic":
+                refined_parts.append(self._call_anthropic(chunk))
+            else:
+                refined_parts.append(self._call_openai_compat(chunk))
+
+        return " ".join(refined_parts)
+
     def _call_anthropic(self, raw_text: str) -> str:
         import anthropic
 
-        api_key = self._cfg.api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        api_key = self._cfg.api_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "No Anthropic API key found. Set ANTHROPIC_API_KEY env var or api_key in config."
+            )
         client = anthropic.Anthropic(api_key=api_key)
 
         message = client.messages.create(

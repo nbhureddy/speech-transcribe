@@ -17,7 +17,7 @@ from live_transcriber.audio.devices import find_default_input_device
 from live_transcriber.config import AppConfig, load_config
 from live_transcriber.io.transcript_logger import TranscriptLogger
 from live_transcriber.llm.refiner import TranscriptRefiner
-from live_transcriber.transcription.transcriber import LiveTranscriber
+from live_transcriber.transcription import get_transcriber
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def _setup_logging(config: AppConfig) -> None:
 
 def run_transcription(config: AppConfig, device_index: int, context: Optional[str] = None) -> None:
     """Start the live transcription loop until the user presses CTRL+C."""
-    transcriber = LiveTranscriber(config)
+    transcriber = get_transcriber(config)
     transcript_logger = TranscriptLogger(config.output.transcript_dir, context=context)
 
     sample_rate = config.audio.sample_rate

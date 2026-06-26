@@ -23,9 +23,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ModelConfig:
-    size: str = "small"
+    size: str = "large-v3-turbo"
     language: str = "en"
-    compute_type: str = "int8"
+    compute_type: str = "float16"
+    # "mlx-whisper" for Apple Silicon native; "faster-whisper" for cross-platform
+    backend: str = "mlx-whisper"
 
 
 @dataclass
@@ -61,12 +63,13 @@ class LoggingConfig:
 @dataclass
 class LLMConfig:
     enabled: bool = False
-    provider: str = "openai"        # openai | ollama | anthropic
-    model: str = "gpt-4o-mini"      # provider-specific model name
+    provider: str = "anthropic"        # openai | ollama | anthropic
+    model: str = "claude-sonnet-4-6" #"gpt-4o-mini"      # provider-specific model name
     api_key: Optional[str] = None   # falls back to OPENAI_API_KEY / ANTHROPIC_API_KEY env vars
     base_url: Optional[str] = None  # override endpoint (e.g. http://localhost:11434/v1 for Ollama)
     temperature: float = 0.1        # low = faithful to source
     max_tokens: int = 4096
+    chunk_tokens: int = 0           # split transcript into chunks of this size (0 = disabled)
 
 
 # ------------------------------------------------------------------ #
@@ -133,7 +136,13 @@ def load_config(path: Optional[str] = None) -> AppConfig:
     def _get(section: str) -> dict:
         return raw.get(section) or {}
 
-    model = ModelConfig(**{k: v for k, v in _get("model").items() if v is not None})
+    model_raw = _get("model")
+    model = ModelConfig(
+        size=model_raw.get("size", "large-v3-turbo"),
+        language=model_raw.get("language", "en"),
+        compute_type=model_raw.get("compute_type", "float16"),
+        backend=model_raw.get("backend", "mlx-whisper"),
+    )
     audio = AudioConfig(**_get("audio"))
     transcription = TranscriptionConfig(**_get("transcription"))
     output = OutputConfig(**_get("output"))
@@ -154,6 +163,7 @@ def load_config(path: Optional[str] = None) -> AppConfig:
         base_url=llm_raw.get("base_url"),
         temperature=float(llm_raw.get("temperature", 0.1)),
         max_tokens=int(llm_raw.get("max_tokens", 4096)),
+        chunk_tokens=int(llm_raw.get("chunk_tokens", 0)),
     )
 
     return AppConfig(

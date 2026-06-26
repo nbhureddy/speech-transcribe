@@ -4,9 +4,13 @@
 # Copy / edit this file and pass it with:  live-transcriber --config path/to/config.yaml
 
 model:
-  size: small          # tiny | base | small | medium | large-v3
-  language: en         # BCP-47 language code; null to auto-detect
-  compute_type: int8   # float16 | int8 | float32
+  size: large-v3-turbo   # tiny | base | small | medium | large-v3 | large-v3-turbo
+  language: en           # BCP-47 language code; null to auto-detect
+  compute_type: float16  # float16 | int8 | float32
+  # backend selects the inference engine:
+  #   mlx-whisper    — native Apple Silicon (M1/M2/M3/M4) via MLX; best speed+accuracy on Mac
+  #   faster-whisper — ctranslate2; cross-platform fallback (Linux, Windows, non-Apple Macs)
+  backend: mlx-whisper
 
 audio:
   sample_rate: 16000
@@ -50,3 +54,36 @@ llm:
 
   temperature: 0.1        # keep low for faithful reproduction
   max_tokens: 4096
+
+  # Chunking for local/small models — splits long transcripts so they fit in
+  # the model's context window. 0 = disabled (send full transcript at once).
+  # Recommended: 1500 for 7-9B models, 3000 for 12B+ models.
+  chunk_tokens: 0
+
+# ------------------------------------------------------------
+# Ollama local examples (copy into the llm: block above)
+# ------------------------------------------------------------
+#
+# Best quality (instruction-following):
+#   provider: ollama
+#   model: qwen2.5:7b          # ollama pull qwen2.5:7b
+#   base_url: http://localhost:11434/v1
+#   chunk_tokens: 1500
+#
+# Good balance (quality vs speed):
+#   provider: ollama
+#   model: gemma2:9b            # ollama pull gemma2:9b
+#   base_url: http://localhost:11434/v1
+#   chunk_tokens: 1500
+#
+# Larger / higher quality:
+#   provider: ollama
+#   model: mistral-nemo:12b     # ollama pull mistral-nemo:12b
+#   base_url: http://localhost:11434/v1
+#   chunk_tokens: 3000
+#
+# Baseline (widely available):
+#   provider: ollama
+#   model: llama3.1:8b          # ollama pull llama3.1:8b
+#   base_url: http://localhost:11434/v1
+#   chunk_tokens: 1500
