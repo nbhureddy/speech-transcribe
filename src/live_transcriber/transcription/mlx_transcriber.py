@@ -115,12 +115,18 @@ class MlxTranscriber:
         try:
             save_wav(wav_path, audio_chunk, self._cfg.audio.sample_rate)
 
+            # mlx-whisper does not support beam search yet; force greedy decoding.
+            if tc.beam_size and tc.beam_size > 1:
+                logger.warning(
+                    "mlx-whisper does not support beam_size > 1 (beam search is not "
+                    "implemented). Falling back to greedy decoding (beam_size=1)."
+                )
             result = mlx_whisper.transcribe(
                 wav_path,
                 path_or_hf_repo=self._model_id,
                 language=self._cfg.model.language or None,
-                # mlx-whisper mirrors OpenAI Whisper's transcribe() API
-                beam_size=tc.beam_size,
+                # beam_size intentionally omitted — mlx_whisper raises
+                # NotImplementedError for beam_size > 1.
                 best_of=tc.best_of,
                 temperature=tc.temperature,
                 # VAD is not built into mlx-whisper; silence is handled by

@@ -22,7 +22,7 @@ audio:
 transcription:
   vad_filter: true
   min_silence_duration_ms: 500
-  beam_size: 5
+  beam_size: 1
   best_of: 5
   temperature: 0.0
 

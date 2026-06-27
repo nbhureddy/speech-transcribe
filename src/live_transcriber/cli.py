@@ -223,7 +223,10 @@ def main() -> None:
 
     device_index = args.device if args.device is not None else find_default_input_device()[0]
     context = _resolve_context(args.context, args.context_file)
-    run_transcription(config, device_index, context=context)
+    try:
+        run_transcription(config, device_index, context=context)
+    except KeyboardInterrupt:
+        print("\nTranscription interrupted.\n")
 
 
 if __name__ == "__main__":
