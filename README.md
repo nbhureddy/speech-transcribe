@@ -98,9 +98,21 @@ llm:
   base_url: null           # e.g. http://localhost:11434/v1 for Ollama
   temperature: 0.1
   max_tokens: 4096
+  timeout_seconds: null    # provider default; Ollama gets a much longer timeout
+  chunk_tokens: 0          # large Ollama transcripts auto-chunk when left at 0
 
 debug: false
 ```
+
+For local Ollama models, refinement slowness usually comes from sending one
+very large transcript to big models at once. Runtime now deduplicates obvious
+overlap repeats, auto-chunks large Ollama inputs when `chunk_tokens` is `0`,
+reuses the resolved Ollama model name across chunk calls, uses a much longer
+default request timeout for local inference, and disables automatic OpenAI
+client retries for Ollama so one timeout does not trigger duplicate long
+generations. If you want manual control, set `llm.chunk_tokens` explicitly —
+`1500` works well for 7-9B models, `3000` for 12B+ models — and raise
+`llm.timeout_seconds` if your local model still needs more time.
 
 ---
 

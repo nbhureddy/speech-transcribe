@@ -54,10 +54,12 @@ llm:
 
   temperature: 0.1        # keep low for faithful reproduction
   max_tokens: 4096
+  timeout_seconds: null   # provider default; Ollama uses a much larger timeout when null
 
   # Chunking for local/small models — splits long transcripts so they fit in
-  # the model's context window. 0 = disabled (send full transcript at once).
-  # Recommended: 1500 for 7-9B models, 3000 for 12B+ models.
+  # the model's context window. 0 = disabled for cloud providers; very large
+  # Ollama transcripts auto-chunk to avoid one giant local request.
+  # Recommended manual settings: 1500 for 7-9B models, 3000 for 12B+ models.
   chunk_tokens: 0
 
 # ------------------------------------------------------------

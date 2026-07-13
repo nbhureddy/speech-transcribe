@@ -69,7 +69,8 @@ class LLMConfig:
     base_url: Optional[str] = None  # override endpoint (e.g. http://localhost:11434/v1 for Ollama)
     temperature: float = 0.1        # low = faithful to source
     max_tokens: int = 4096
-    chunk_tokens: int = 0           # split transcript into chunks of this size (0 = disabled)
+    chunk_tokens: int = 0           # split transcript into chunks of this size (large Ollama inputs auto-chunk when 0)
+    timeout_seconds: Optional[int] = None  # provider default when null; use larger values for slow local models
 
 
 # ------------------------------------------------------------------ #
@@ -164,6 +165,11 @@ def load_config(path: Optional[str] = None) -> AppConfig:
         temperature=float(llm_raw.get("temperature", 0.1)),
         max_tokens=int(llm_raw.get("max_tokens", 4096)),
         chunk_tokens=int(llm_raw.get("chunk_tokens", 0)),
+        timeout_seconds=(
+            int(llm_raw["timeout_seconds"])
+            if llm_raw.get("timeout_seconds") is not None
+            else None
+        ),
     )
 
     return AppConfig(
