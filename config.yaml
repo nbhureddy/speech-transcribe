@@ -39,10 +39,12 @@ debug: false
 # ============================================================
 # LLM refinement (runs at end of session on CTRL+C)
 # ============================================================
+# LLM refinement (runs at end of session on CTRL+C)
+# ============================================================
 llm:
-  enabled: false          # set to true to enable post-processing
-  provider: openai        # openai | ollama | anthropic
-  model: gpt-4o-mini      # model name for the chosen provider
+  enabled: true                     # set to true to enable post-processing
+  provider: ollama #openai          # openai | ollama | anthropic
+  model: qwen2.5:7b  #gpt-4o-mini   # model name for the chosen provider
 
   # API key — leave null to read from env var (OPENAI_API_KEY / ANTHROPIC_API_KEY)
   api_key: null
@@ -50,17 +52,17 @@ llm:
   # Override API endpoint. Examples:
   #   Ollama local : http://localhost:11434/v1
   #   Azure OpenAI : https://<resource>.openai.azure.com/openai/deployments/<deploy>
-  base_url: null
+  base_url: http://localhost:11434/v1
 
   temperature: 0.1        # keep low for faithful reproduction
-  max_tokens: 4096
+  max_tokens: 900000
   timeout_seconds: null   # provider default; Ollama uses a much larger timeout when null
 
   # Chunking for local/small models — splits long transcripts so they fit in
   # the model's context window. 0 = disabled for cloud providers; very large
   # Ollama transcripts auto-chunk to avoid one giant local request.
   # Recommended manual settings: 1500 for 7-9B models, 3000 for 12B+ models.
-  chunk_tokens: 0
+  chunk_tokens: 1500
 
 # ------------------------------------------------------------
 # Ollama local examples (copy into the llm: block above)

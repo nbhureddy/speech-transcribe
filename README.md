@@ -1,8 +1,8 @@
 # live-transcriber
 
-Real-time system-audio transcription for macOS/Linux, powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
+Live or one-shot audio transcription for macOS/Linux, powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
 
-Captures audio from any input device (incl. BlackHole for system audio), transcribes it locally using Whisper, and appends results to a timestamped text file — all with zero cloud dependency.
+Captures audio from any input device (incl. BlackHole for system audio) or transcribes an existing audio file, then appends results to a timestamped text file — all with zero cloud dependency.
 
 ---
 
@@ -39,6 +39,9 @@ This registers the `live-transcriber` CLI command inside the active virtualenv.
 # Auto-detect MacBook mic and start transcribing
 live-transcriber
 
+# Transcribe an existing audio file
+live-transcriber --input-file ~/recordings/meeting.mp3
+
 # Add session context (written as header in transcript file)
 live-transcriber --context "Speaker: John Doe, Topic: Q4 earnings"
 live-transcriber --context-file ~/notes/session.txt
@@ -56,7 +59,7 @@ live-transcriber --config /path/to/my_config.yaml
 live-transcriber --debug
 ```
 
-Press **CTRL+C** to stop. If LLM refinement is enabled, the cleaned transcript is saved automatically on exit.
+Press **CTRL+C** to stop live capture. If LLM refinement is enabled, the cleaned transcript is saved automatically after live capture stops or file transcription finishes.
 
 ---
 
@@ -89,7 +92,7 @@ logging:
   log_file: logs/app.log   # null = stdout only
   suppress_third_party: true
 
-# LLM refinement — runs at end of session on CTRL+C
+# LLM refinement — runs at end of live session or after file transcription
 llm:
   enabled: false           # set to true to enable
   provider: openai         # openai | ollama | anthropic
@@ -121,7 +124,7 @@ generations. If you want manual control, set `llm.chunk_tokens` explicitly —
 1. Install [BlackHole 2ch](https://existential.audio/blackhole/)
 2. Open **Audio MIDI Setup** → create a **Multi-Output Device** combining BlackHole + your speakers
 3. Set that Multi-Output Device as your system output
-4. `live-transcriber` will auto-detect BlackHole as the input
+4. `live-transcriber` will auto-detect BlackHole as the input when `--input-file` is not used
 
 ---
 

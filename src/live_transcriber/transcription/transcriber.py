@@ -84,3 +84,37 @@ class LiveTranscriber:
         finally:
             if os.path.exists(wav_path):
                 os.remove(wav_path)
+
+    def transcribe_file(self, audio_file_path: str) -> str:
+        """
+        Transcribe an audio file using faster-whisper's native file support.
+
+        Parameters
+        ----------
+        audio_file_path:
+            Path to an audio file supported by the backend, such as WAV or MP3.
+
+        Returns
+        -------
+        str
+            Full transcribed text, or an empty string if nothing was detected.
+        """
+        tc = self._cfg.transcription
+
+        segments, _info = self._model.transcribe(
+            audio_file_path,
+            language=self._cfg.model.language or None,
+            vad_filter=tc.vad_filter,
+            vad_parameters={"min_silence_duration_ms": tc.min_silence_duration_ms},
+            beam_size=tc.beam_size,
+            best_of=tc.best_of,
+            temperature=tc.temperature,
+        )
+
+        texts = [seg.text.strip() for seg in segments if seg.text.strip()]
+        result = " ".join(texts).strip()
+
+        if result and self._cfg.debug:
+            logger.debug("Transcribed file: %s", audio_file_path)
+
+        return result

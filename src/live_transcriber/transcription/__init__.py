@@ -19,6 +19,8 @@ class TranscriberProtocol(Protocol):
 
     def transcribe(self, audio_chunk: np.ndarray) -> str: ...
 
+    def transcribe_file(self, audio_file_path: str) -> str: ...
+
 
 def get_transcriber(config: "AppConfig") -> TranscriberProtocol:
     """

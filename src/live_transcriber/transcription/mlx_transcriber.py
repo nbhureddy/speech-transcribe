@@ -145,3 +145,43 @@ class MlxTranscriber:
         finally:
             if os.path.exists(wav_path):
                 os.remove(wav_path)
+
+    def transcribe_file(self, audio_file_path: str) -> str:
+        """
+        Transcribe an audio file path using mlx-whisper.
+
+        Parameters
+        ----------
+        audio_file_path:
+            Path to an audio file supported by mlx-whisper, such as WAV or MP3.
+
+        Returns
+        -------
+        str
+            Full transcribed text, or an empty string if nothing was detected.
+        """
+        import mlx_whisper
+
+        tc = self._cfg.transcription
+
+        if tc.beam_size and tc.beam_size > 1:
+            logger.warning(
+                "mlx-whisper does not support beam_size > 1 (beam search is not "
+                "implemented). Falling back to greedy decoding (beam_size=1)."
+            )
+
+        result = mlx_whisper.transcribe(
+            audio_file_path,
+            path_or_hf_repo=self._model_id,
+            language=self._cfg.model.language or None,
+            best_of=tc.best_of,
+            temperature=tc.temperature,
+            verbose=False,
+        )
+
+        text = result.get("text", "").strip()
+
+        if text and self._cfg.debug:
+            logger.debug("Transcribed file (MLX): %s", audio_file_path)
+
+        return text

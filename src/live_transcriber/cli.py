@@ -8,6 +8,7 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -95,6 +96,49 @@ def _setup_logging(config: AppConfig) -> None:
             logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
+def _refine_transcript(
+    config: AppConfig,
+    transcript_logger: TranscriptLogger,
+    raw_chunks: list[str],
+) -> None:
+    """Run optional end-of-session transcript refinement."""
+    if not (config.llm.enabled and raw_chunks):
+        return
+
+    print("Refining transcript with LLM…")
+    try:
+        refiner = TranscriptRefiner(config.llm)
+        full_raw = "\n".join(raw_chunks)
+        refined_path = refiner.refine_to_file(full_raw, transcript_logger.file_path)
+        print(f"Refined transcript saved → {refined_path}\n")
+    except Exception as exc:
+        logger.error("LLM refinement failed — raw transcript is still saved. Error: %s", exc)
+
+
+def _handle_transcribed_text(
+    text: str,
+    transcript_logger: TranscriptLogger,
+    raw_chunks: list[str],
+) -> None:
+    """Print, persist, and collect transcribed text when any was produced."""
+    if not text:
+        return
+
+    print(text)
+    transcript_logger.log(text)
+    raw_chunks.append(text)
+
+
+def _resolve_audio_file_path(audio_file_path: str) -> str:
+    """Validate and normalize the requested audio input path."""
+    resolved = Path(audio_file_path).expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Audio file not found: {resolved}")
+    if not resolved.is_file():
+        raise IsADirectoryError(f"Audio input must be a file: {resolved}")
+    return str(resolved)
+
+
 # ------------------------------------------------------------------ #
 # Main transcription loop
 # ------------------------------------------------------------------ #
@@ -114,8 +158,8 @@ def run_transcription(config: AppConfig, device_index: int, context: Optional[st
 
     logger.info("Starting live transcription — press CTRL+C to stop.")
 
-    with AudioCapture(config.audio, device_index) as capture:
-        try:
+    try:
+        with AudioCapture(config.audio, device_index) as capture:
             while True:
                 block = capture.get_block()
                 if block is None:
@@ -133,26 +177,28 @@ def run_transcription(config: AppConfig, device_index: int, context: Optional[st
                     logger.debug("Processing %.2fs audio…", len(chunk) / sample_rate)
 
                 text = transcriber.transcribe(chunk)
+                _handle_transcribed_text(text, transcript_logger, raw_chunks)
+    except KeyboardInterrupt:
+        logger.info("Transcription stopped by user.")
+        print("\nStopping transcription…\n")
+    finally:
+        _refine_transcript(config, transcript_logger, raw_chunks)
 
-                if text:
-                    print(text)
-                    transcript_logger.log(text)
-                    raw_chunks.append(text)
 
-        except KeyboardInterrupt:
-            logger.info("Transcription stopped by user.")
-            print("\nStopping transcription…\n")
+def run_file_transcription(
+    config: AppConfig,
+    audio_file_path: str,
+    context: Optional[str] = None,
+) -> None:
+    """Transcribe a whole audio file in one pass."""
+    transcriber = get_transcriber(config)
+    transcript_logger = TranscriptLogger(config.output.transcript_dir, context=context)
+    raw_chunks: list[str] = []
 
-    # ── LLM refinement (runs after the audio stream is closed) ──────
-    if config.llm.enabled and raw_chunks:
-        print("Refining transcript with LLM…")
-        try:
-            refiner = TranscriptRefiner(config.llm)
-            full_raw = "\n".join(raw_chunks)
-            refined_path = refiner.refine_to_file(full_raw, transcript_logger.file_path)
-            print(f"Refined transcript saved → {refined_path}\n")
-        except Exception as exc:
-            logger.error("LLM refinement failed — raw transcript is still saved. Error: %s", exc)
+    logger.info("Starting file transcription: %s", audio_file_path)
+    text = transcriber.transcribe_file(audio_file_path)
+    _handle_transcribed_text(text, transcript_logger, raw_chunks)
+    _refine_transcript(config, transcript_logger, raw_chunks)
 
 
 # ------------------------------------------------------------------ #
@@ -163,7 +209,7 @@ def run_transcription(config: AppConfig, device_index: int, context: Optional[st
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="live-transcriber",
-        description="Live system-audio transcription powered by faster-whisper.",
+        description="Live or file-based audio transcription powered by Whisper backends.",
     )
     parser.add_argument(
         "--config",
@@ -171,12 +217,20 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to a config.yaml file (default: ./config.yaml).",
     )
-    parser.add_argument(
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument(
         "--device",
         metavar="INDEX",
         type=int,
         default=None,
         help="Audio input device index (skips interactive prompt).",
+    )
+    input_group.add_argument(
+        "--input-file",
+        metavar="PATH",
+        default=None,
+        dest="input_file",
+        help="Path to an audio file such as WAV or MP3 for one-shot transcription.",
     )
     parser.add_argument(
         "--context",
@@ -218,15 +272,17 @@ def main() -> None:
     _setup_logging(config)
 
     print("\n===================================")
-    print(" Live System Audio Transcription")
+    print(" Audio Transcription")
     print("===================================\n")
 
-    device_index = args.device if args.device is not None else find_default_input_device()[0]
     context = _resolve_context(args.context, args.context_file)
-    try:
-        run_transcription(config, device_index, context=context)
-    except KeyboardInterrupt:
-        print("\nTranscription interrupted.\n")
+    if args.input_file:
+        audio_file_path = _resolve_audio_file_path(args.input_file)
+        run_file_transcription(config, audio_file_path, context=context)
+        return
+
+    device_index = args.device if args.device is not None else find_default_input_device()[0]
+    run_transcription(config, device_index, context=context)
 
 
 if __name__ == "__main__":
